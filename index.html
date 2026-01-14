@@ -942,10 +942,16 @@
                 const data = { name, description: desc };
 
                 if (id) {
-                    await update(ref(db, 'categories/' + id), data);
+                    await Promise.race([
+                        update(ref(db, 'categories/' + id), data),
+                        new Promise((_, reject) => setTimeout(() => reject(new Error("Firebase request timed out. Check your internet or Database URL.")), 10000))
+                    ]);
                     console.log("Category Updated");
                 } else {
-                    await push(ref(db, 'categories'), data);
+                    await Promise.race([
+                        push(ref(db, 'categories'), data),
+                        new Promise((_, reject) => setTimeout(() => reject(new Error("Firebase request timed out. Check your internet or Database URL.")), 10000))
+                    ]);
                     console.log("Category Added");
                 }
                 closeModal('category-modal');
