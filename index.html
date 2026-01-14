@@ -770,10 +770,31 @@
         });
 
         async function checkAdminRole(user) {
-            const adminRef = ref(db, 'roles/admin/' + user.uid);
+            const rolesRef = ref(db, 'roles/admin');
             try {
-                const snapshot = await get(adminRef);
-                if (snapshot.exists()) {
+                const snapshot = await get(rolesRef);
+
+                // BOOTSTRAP: If no admins exist yet, make the CURRENT user the first admin.
+                if (!snapshot.exists()) {
+                    const firstAdminData = {
+                        email: user.email || "phone_user",
+                        createdAt: Date.now()
+                    };
+                    await set(ref(db, 'roles/admin/' + user.uid), firstAdminData);
+                    alert("System Intialization: You have been registered as the first Administrator.");
+
+                    // Proceed to dashboard
+                    loginSection.style.display = 'none';
+                    dashboardContainer.style.display = 'flex';
+                    loadData();
+                    return;
+                }
+
+                // Standard Check: specific user
+                const adminUserRef = ref(db, 'roles/admin/' + user.uid);
+                const adminSnapshot = await get(adminUserRef);
+
+                if (adminSnapshot.exists()) {
                     // User IS Admin
                     loginSection.style.display = 'none';
                     dashboardContainer.style.display = 'flex';
@@ -789,7 +810,7 @@
             } catch (e) {
                 console.error("Error checking role", e);
                 await signOut(auth);
-                loginError.textContent = "Security Check Failed. Please login again.";
+                loginError.textContent = "Security Check Failed. Please login again. Error: " + e.message;
                 loginError.style.display = 'block';
                 showAuthButtons();
             }
