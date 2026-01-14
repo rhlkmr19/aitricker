@@ -925,20 +925,37 @@
             }
         };
 
-        document.getElementById('category-form').addEventListener('submit', (e) => {
+        document.getElementById('category-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const id = document.getElementById('cat-id').value;
-            const name = document.getElementById('cat-name').value;
-            const desc = document.getElementById('cat-desc').value;
+            const btn = e.target.querySelector('button[type="submit"]');
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = "Saving...";
 
-            const data = { name, description: desc };
+            try {
+                const id = document.getElementById('cat-id').value;
+                const name = document.getElementById('cat-name').value;
+                const desc = document.getElementById('cat-desc').value;
 
-            if (id) {
-                update(ref(db, 'categories/' + id), data);
-            } else {
-                push(ref(db, 'categories'), data);
+                console.log("Submitting Category:", { id, name, desc });
+
+                const data = { name, description: desc };
+
+                if (id) {
+                    await update(ref(db, 'categories/' + id), data);
+                    console.log("Category Updated");
+                } else {
+                    await push(ref(db, 'categories'), data);
+                    console.log("Category Added");
+                }
+                closeModal('category-modal');
+            } catch (error) {
+                console.error("Error saving category:", error);
+                alert("Failed to save category: " + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalText;
             }
-            closeModal('category-modal');
         });
 
         // --- Products ---
