@@ -925,12 +925,32 @@
             }
         };
 
+        // Config Validator
+        function checkConfig() {
+            if (firebaseConfig.apiKey === "AIzaSyCDJgNGQcNqLGmez6e9vCHLzGun836THXE" ||
+                firebaseConfig.databaseURL.includes("aitricker-default-rtdb")) {
+                alert("CRITICAL ERROR: You are using PLACEHOLDER Firebase Config.\n\nData will NOT stick.\n\nPlease open admin_panel.html and replace 'firebaseConfig' with your actual keys from Firebase Console.");
+            }
+        }
+        checkConfig();
+
         document.getElementById('category-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = e.target.querySelector('button[type="submit"]');
             const originalText = btn.textContent;
+
+            // Prevent double-click but don't disable forever if it hangs
+            if (btn.textContent === "Saving...") return;
+
             btn.disabled = true;
             btn.textContent = "Saving...";
+
+            // Manual timeout warning
+            const timeoutWarning = setTimeout(() => {
+                alert("Request is taking too long. Please check your internet or Firebase Config.");
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }, 8000);
 
             try {
                 const id = document.getElementById('cat-id').value;
@@ -942,22 +962,22 @@
                 const data = { name, description: desc };
 
                 if (id) {
-                    await Promise.race([
-                        update(ref(db, 'categories/' + id), data),
-                        new Promise((_, reject) => setTimeout(() => reject(new Error("Firebase request timed out. Check your internet or Database URL.")), 10000))
-                    ]);
+                    await update(ref(db, 'categories/' + id), data);
                     console.log("Category Updated");
                 } else {
-                    await Promise.race([
-                        push(ref(db, 'categories'), data),
-                        new Promise((_, reject) => setTimeout(() => reject(new Error("Firebase request timed out. Check your internet or Database URL.")), 10000))
-                    ]);
+                    await push(ref(db, 'categories'), data);
                     console.log("Category Added");
                 }
+
+                clearTimeout(timeoutWarning);
                 closeModal('category-modal');
+                // Optional: success feedback
+                // alert("Saved!");
+
             } catch (error) {
+                clearTimeout(timeoutWarning);
                 console.error("Error saving category:", error);
-                alert("Failed to save category: " + error.message);
+                alert("Failed to save: " + error.message);
             } finally {
                 btn.disabled = false;
                 btn.textContent = originalText;
