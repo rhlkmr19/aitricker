@@ -747,10 +747,11 @@
 
         // Google Login
         document.getElementById('google-login-btn').addEventListener('click', async () => {
+            console.log("Google button clicked");
             const provider = new GoogleAuthProvider();
             try {
-                // Auth listener will handle post-login
                 await signInWithPopup(auth, provider);
+                console.log("Google Sign-In Popup Closed (Success or awaiting auth state change)");
             } catch (error) {
                 console.error("Login Error:", error);
                 loginError.textContent = "Login Failed: " + error.message;
@@ -758,68 +759,53 @@
             }
         });
 
-        // Auth Listener & Admin Role Check
+        // Auth Listener - The Single Source of Truth
         onAuthStateChanged(auth, async (user) => {
+            console.log("Auth State Changed Triggered");
             if (user) {
-                // User is authenticated, BUT we must check if they are ADMIN
-                checkAdminRole(user);
+                console.log("User detected:", user.email);
+                await handleAdminAuth(user);
             } else {
-                // No user is logged in
+                console.log("No user signed in (or signed out)");
                 loginSection.style.display = 'flex';
                 dashboardContainer.style.display = 'none';
-                showAuthButtons(); // Reset login view
+                showAuthButtons();
             }
         });
 
-        async function checkAdminRole(user) {
-            const rolesRef = ref(db, 'roles/admin');
-            try {
-                const snapshot = await get(rolesRef);
+        // Strict Admin Check
+        async function handleAdminAuth(user) {
+            const allowedEmail = "androitricker@gmail.com";
 
-                // BOOTSTRAP: If no admins exist yet, make the CURRENT user the first admin.
-                if (!snapshot.exists()) {
-                    const firstAdminData = {
-                        email: user.email || "google_user",
-                        createdAt: Date.now()
-                    };
-                    await set(ref(db, 'roles/admin/' + user.uid), firstAdminData);
-                    alert("System Intialization: You have been registered as the first Administrator.");
+            if (user.email === allowedEmail) {
+                console.log("Admin Authorized: " + user.email);
+                loginSection.style.display = 'none';
+                dashboardContainer.style.display = 'flex';
 
-                    // Proceed to dashboard
-                    loginSection.style.display = 'none';
-                    dashboardContainer.style.display = 'flex';
-                    loadData();
-                    return;
+                // Also ensure the admin role exists in DB for reference
+                try {
+                    const adminRef = ref(db, 'roles/admin/' + user.uid);
+                    const snapshot = await get(adminRef);
+                    if (!snapshot.exists()) {
+                        await set(adminRef, {
+                            email: user.email,
+                            createdAt: Date.now(),
+                            role: 'super_admin'
+                        });
+                        console.log("Admin DB record created for consistency");
+                    }
+                } catch (e) {
+                    console.warn("Non-critical DB update error:", e);
                 }
 
-                // Standard Check: specific user
-                const adminUserRef = ref(db, 'roles/admin/' + user.uid);
-                const adminSnapshot = await get(adminUserRef);
-
-                if (adminSnapshot.exists()) {
-                    // User IS Admin
-                    loginSection.style.display = 'none';
-                    dashboardContainer.style.display = 'flex';
-                    loadData();
-                } else {
-                    // User is NOT Admin
-                    await signOut(auth); // Force logout
-                    alert("Access Denied: You do not have admin privileges.");
-                    loginError.textContent = "Access Denied: You are not authorized as an admin.";
-                    loginError.style.display = 'block';
-                    showAuthButtons();
-                }
-            } catch (e) {
-                console.error("Error checking role", e);
-                // Check for Permission Denied specifically
-                if (e.message.includes("permission_denied")) {
-                    alert("Database Permission Error: Please ensure your Firebase Database Rules are set to 'read: true, write: true' for development, or configure proper rules.");
-                }
-
-                await signOut(auth);
-                loginError.innerHTML = "Security Check Failed.<br>Error: " + e.message + "<br>Check console for details.";
+                loadData();
+            } else {
+                console.warn("Unauthorized Access Attempt: " + user.email);
+                alert("ACCESS DENIED: This account is not authorized.");
+                loginError.textContent = "Access Denied. You are not an admin.";
                 loginError.style.display = 'block';
-                showAuthButtons();
+                await signOut(auth);
+                // UI reset happens in onAuthStateChanged(else)
             }
         }
 
