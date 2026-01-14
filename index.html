@@ -746,14 +746,36 @@
         }
 
         // Google Login
-        document.getElementById('google-login-btn').addEventListener('click', async () => {
+        const googleLoginBtn = document.getElementById('google-login-btn');
+        googleLoginBtn.addEventListener('click', async () => {
             console.log("Google button clicked");
+
+            // UI Feedback & Prevent Double Clicks
+            googleLoginBtn.disabled = true;
+            const originalText = googleLoginBtn.innerHTML;
+            googleLoginBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Signing in...';
+            loginError.style.display = 'none';
+
             const provider = new GoogleAuthProvider();
             try {
                 await signInWithPopup(auth, provider);
-                console.log("Google Sign-In Popup Closed (Success or awaiting auth state change)");
+                console.log("Google Sign-In Popup Closed (Success)");
+                // We do NOT re-enable the button immediately on success, 
+                // because we want to wait for the onAuthStateChanged to redirect the user.
             } catch (error) {
                 console.error("Login Error:", error);
+
+                // Re-enable button
+                googleLoginBtn.disabled = false;
+                googleLoginBtn.innerHTML = originalText;
+
+                // Handle specifically the "cancelled-popup-request" (user clicked twice or blocked)
+                // or "popup-closed-by-user"
+                if (error.code === 'auth/cancelled-popup-request' || error.code === 'auth/popup-closed-by-user') {
+                    // Just ignore, user cancelled.
+                    return;
+                }
+
                 loginError.textContent = "Login Failed: " + error.message;
                 loginError.style.display = 'block';
             }
