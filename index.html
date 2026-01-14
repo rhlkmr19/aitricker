@@ -713,6 +713,7 @@
         const firebaseConfig = {
             apiKey: "AIzaSyCDJgNGQcNqLGmez6e9vCHLzGun836THXE",
             authDomain: "aitricker.firebaseapp.com",
+            databaseURL: "https://aitricker-default-rtdb.firebaseio.com",
             projectId: "aitricker",
             storageBucket: "aitricker.firebasestorage.app",
             messagingSenderId: "726305513528",
@@ -751,7 +752,8 @@
                 // Auth listener will handle post-login
                 await signInWithPopup(auth, provider);
             } catch (error) {
-                loginError.textContent = error.message;
+                console.error("Login Error:", error);
+                loginError.textContent = "Login Failed: " + error.message;
                 loginError.style.display = 'block';
             }
         });
@@ -777,7 +779,7 @@
                 // BOOTSTRAP: If no admins exist yet, make the CURRENT user the first admin.
                 if (!snapshot.exists()) {
                     const firstAdminData = {
-                        email: user.email || "phone_user",
+                        email: user.email || "google_user",
                         createdAt: Date.now()
                     };
                     await set(ref(db, 'roles/admin/' + user.uid), firstAdminData);
@@ -809,8 +811,13 @@
                 }
             } catch (e) {
                 console.error("Error checking role", e);
+                // Check for Permission Denied specifically
+                if (e.message.includes("permission_denied")) {
+                    alert("Database Permission Error: Please ensure your Firebase Database Rules are set to 'read: true, write: true' for development, or configure proper rules.");
+                }
+
                 await signOut(auth);
-                loginError.textContent = "Security Check Failed. Please login again. Error: " + e.message;
+                loginError.innerHTML = "Security Check Failed.<br>Error: " + e.message + "<br>Check console for details.";
                 loginError.style.display = 'block';
                 showAuthButtons();
             }
