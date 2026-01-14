@@ -420,6 +420,32 @@
         </div>
     </div>
 
+    <!-- On-Screen Debug Console -->
+    <div id="debug-console" style="
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 150px;
+        background: rgba(0,0,0,0.85);
+        color: #0f0;
+        font-family: monospace;
+        font-size: 12px;
+        padding: 10px;
+        overflow-y: auto;
+        z-index: 9999;
+        display: none; /* Hidden by default toggled by script if needed, or I will force show it for now */
+        border-top: 2px solid #333;
+    ">
+        <div
+            style="border-bottom: 1px solid #444; margin-bottom: 5px; padding-bottom: 5px; font-weight: bold; color: #fff;">
+            SYSTEM LOGS (Take a screenshot if errors appear)
+            <button onclick="document.getElementById('debug-console').style.display='none'"
+                style="float: right; cursor: pointer; background: #333; color: #fff; border: none; padding: 2px 5px;">X</button>
+        </div>
+        <div id="debug-logs"></div>
+    </div>
+
     <!-- Dashboard Container -->
     <div id="dashboard-container">
         <!-- Sidebar -->
@@ -726,7 +752,59 @@
         const db = getDatabase(app);
 
         // Ensure auth is ready
+        // Ensure auth is ready
         auth.languageCode = 'en';
+
+        // --- DEBUG CONSOLE LOGIC ---
+        const debugConsole = document.getElementById('debug-console');
+        const debugLogs = document.getElementById('debug-logs');
+
+        // Force show debug console for troubleshooting
+        debugConsole.style.display = 'block';
+
+        function logToScreen(msg, type = 'info') {
+            const line = document.createElement('div');
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            line.style.borderBottom = '1px solid #333';
+            line.style.padding = '2px 0';
+            if (type === 'error') line.style.color = '#ff5555';
+            if (type === 'warn') line.style.color = '#ffff55';
+            debugLogs.appendChild(line);
+            debugLogs.scrollTop = debugLogs.scrollHeight;
+        }
+
+        // Override default logs
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+
+        console.log = (...args) => {
+            originalLog(...args);
+            logToScreen(args.join(' '));
+        };
+        console.error = (...args) => {
+            originalError(...args);
+            logToScreen(args.join(' '), 'error');
+        };
+        console.warn = (...args) => {
+            originalWarn(...args);
+            logToScreen(args.join(' '), 'warn');
+        };
+
+        // Test Connection
+        console.log("System initializing...");
+        try {
+            const connectedRef = ref(db, ".info/connected");
+            onValue(connectedRef, (snap) => {
+                if (snap.val() === true) {
+                    console.log("✅ FIRBASE CONNECTED!");
+                } else {
+                    console.warn("⚠️ FIREBASE DISCONNECTED. Checking connection...");
+                }
+            });
+        } catch (e) {
+            console.error("Connection Check Failed: " + e.message);
+        }
 
         // State variables
         let categories = {};
