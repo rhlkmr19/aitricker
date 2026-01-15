@@ -1146,23 +1146,25 @@
             if (type === 'source_code') {
                 contentUrl = document.getElementById('prod-drive-link').value;
             } else {
-                let rawVideoInput = document.getElementById('prod-video-link').value;
-                // Check if input is an Iframe Embed Code
-                if (rawVideoInput.includes("<iframe") && rawVideoInput.includes("src=")) {
-                    try {
-                        // Extract src using regex
-                        const srcMatch = rawVideoInput.match(/src=["'](.*?)["']/);
-                        if (srcMatch && srcMatch[1]) {
-                            contentUrl = srcMatch[1];
-                        } else {
-                            contentUrl = rawVideoInput; // Fallback
-                        }
-                    } catch (e) {
-                        contentUrl = rawVideoInput;
-                    }
-                } else {
-                    contentUrl = rawVideoInput;
+                let rawInput = document.getElementById('prod-video-link').value.trim();
+                let videoId = "";
+
+                // Helper to extract ID
+                if (rawInput.includes("youtube.com/watch?v=")) {
+                    videoId = rawInput.split("v=")[1].split("&")[0];
+                } else if (rawInput.includes("youtu.be/")) {
+                    videoId = rawInput.split("youtu.be/")[1].split("?")[0];
+                } else if (rawInput.includes("embed/")) {
+                    videoId = rawInput.split("embed/")[1].split('"')[0].split("'")[0].split("?")[0];
                 }
+
+                if (!videoId || videoId.length < 5) {
+                    alert("INVALID YOUTUBE VIDEO! \n\nPlease provide a valid YouTube Link or Embed Code.");
+                    return; // Validate fail
+                }
+
+                // FORCE CLEAN FORMAT
+                contentUrl = `https://www.youtube.com/embed/${videoId}`;
             }
 
             const data = {
