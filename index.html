@@ -452,6 +452,11 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="#" class="nav-link" data-view="notifications">
+                        <i class="fa-solid fa-bell"></i> Notifications
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="#" class="nav-link" data-view="users">
                         <i class="fa-solid fa-users"></i> Users
                     </a>
@@ -594,6 +599,7 @@
 
             <!-- Messages View -->
             <div id="view-messages" class="view-section">
+                <!-- ... existing messages source ... -->
                 <div class="page-header">
                     <div class="page-title">User Messages</div>
                 </div>
@@ -636,6 +642,46 @@
                             </form>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Notifications View -->
+            <div id="view-notifications" class="view-section">
+                <div class="page-header">
+                    <div class="page-title">Send Notifications</div>
+                </div>
+                <div class="content-card" style="padding: 2rem; max-width: 600px;">
+                    <form id="notification-form">
+                        <div class="form-group">
+                            <label class="form-label">Notification Title</label>
+                            <input type="text" id="notif-title" class="form-input" placeholder="e.g., New Sale!"
+                                required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Message Description</label>
+                            <textarea id="notif-message" class="form-input" rows="4"
+                                placeholder="Enter message for all users..." required></textarea>
+                        </div>
+                        <button type="submit" class="btn"><i class="fa-solid fa-paper-plane"></i> Send to All
+                            Users</button>
+                    </form>
+                </div>
+
+                <div class="content-card" style="margin-top:2rem;">
+                    <div style="padding:1rem; border-bottom:1px solid #e5e7eb; font-weight:bold;">Recent Notifications
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Title</th>
+                                <th>Message</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
+                        <tbody id="notifications-table">
+                            <!-- JS -->
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
@@ -1133,6 +1179,72 @@
             });
         }
 
+        // --- NOTIFICATION LOGIC ---
+        function sendSystemNotification(title, message) {
+            const notifRef = push(ref(db, 'system_notifications'));
+            return set(notifRef, {
+                title: title,
+                message: message,
+                timestamp: Date.now()
+            });
+        }
+
+        const notificationForm = document.getElementById('notification-form');
+        if (notificationForm) {
+            notificationForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const title = document.getElementById('notif-title').value;
+                const message = document.getElementById('notif-message').value;
+
+                sendSystemNotification(title, message)
+                    .then(() => {
+                        alert("Notification sent to all users!");
+                        notificationForm.reset();
+                        loadNotifications(); // Reload list
+                    })
+                    .catch((error) => {
+                        console.error("Error sending notification:", error);
+                    });
+            });
+        }
+
+        function loadNotifications() {
+            const tableBody = document.getElementById('notifications-table');
+            const notifRef = ref(db, 'system_notifications');
+
+            onValue(notifRef, (snapshot) => {
+                tableBody.innerHTML = '';
+                if (snapshot.exists()) {
+                    const data = snapshot.val();
+                    const notifs = Object.entries(data).map(([key, val]) => ({ id: key, ...val }))
+                        .sort((a, b) => b.timestamp - a.timestamp);
+
+                    notifs.forEach(notif => {
+                        const date = new Date(notif.timestamp).toLocaleString();
+                        const row = `
+                            <tr>
+                                <td>${notif.title}</td>
+                                <td>${notif.message}</td>
+                                <td>${date}</td>
+                            </tr>
+                        `;
+                        tableBody.innerHTML += row;
+                    });
+                } else {
+                    tableBody.innerHTML = '<tr><td colspan="3" style="text-align:center;">No notifications sent yet</td></tr>';
+                }
+            });
+        }
+
+        // Listen for view changes to load notifications
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                if (link.dataset.view === 'notifications') {
+                    loadNotifications();
+                }
+            });
+        });
+
         window.openProductModal = () => {
             document.getElementById('product-modal-title').textContent = "Add Product";
             document.getElementById('product-form').reset();
@@ -1230,12 +1342,27 @@
             };
 
             if (id) {
-                update(ref(db, 'products/' + id), data);
+                // Update
+                update(ref(db, 'products/' + id), data)
+                    .then(() => {
+                        closeModal('product-modal');
+                        document.getElementById('product-form').reset();
+                    })
+                    .catch((error) => alert('Error: ' + error.message));
             } else {
+                // Create New
                 data.createdAt = Date.now();
-                push(ref(db, 'products'), data);
+                const newRef = push(ref(db, 'products'));
+                set(newRef, data)
+                    .then(() => {
+                        closeModal('product-modal');
+                        document.getElementById('product-form').reset();
+
+                        // AUTO SEND NOTIFICATION
+                        sendSystemNotification("New Release!", `New ${type === 'source_code' ? 'App' : 'Course'}: ${title} is now available!`);
+                    })
+                    .catch((error) => alert('Error: ' + error.message));
             }
-            closeModal('product-modal');
         });
 
         // --- Users ---
