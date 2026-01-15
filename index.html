@@ -447,6 +447,11 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="#" class="nav-link" data-view="messages">
+                        <i class="fa-solid fa-comments"></i> Messages
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="#" class="nav-link" data-view="users">
                         <i class="fa-solid fa-users"></i> Users
                     </a>
@@ -569,6 +574,7 @@
                 <div class="page-header">
                     <div class="page-title">Users</div>
                 </div>
+                <!-- ... existing users content ... -->
                 <div class="content-card">
                     <table class="data-table">
                         <thead>
@@ -583,6 +589,53 @@
                             <!-- JS -->
                         </tbody>
                     </table>
+                </div>
+            </div>
+
+            <!-- Messages View -->
+            <div id="view-messages" class="view-section">
+                <div class="page-header">
+                    <div class="page-title">User Messages</div>
+                </div>
+                <div
+                    style="display: flex; height: 500px; border: 1px solid var(--border-color); border-radius: 0.75rem; background: white; overflow: hidden;">
+                    <!-- User List -->
+                    <div
+                        style="width: 30%; border-right: 1px solid var(--border-color); display: flex; flex-direction: column;">
+                        <div
+                            style="padding: 1rem; border-bottom: 1px solid var(--border-color); font-weight: bold; background: #f9fafb;">
+                            Chats
+                        </div>
+                        <div id="chat-user-list" style="flex: 1; overflow-y: auto;">
+                            <!-- Populated via JS -->
+                            <div style="padding: 1rem; text-align: center; color: var(--text-secondary);">No active
+                                chats</div>
+                        </div>
+                    </div>
+
+                    <!-- Chat Window -->
+                    <div style="flex: 1; display: flex; flex-direction: column;">
+                        <div id="chat-header"
+                            style="padding: 1rem; border-bottom: 1px solid var(--border-color); font-weight: bold; display: none;">
+                            <!-- Selected User Name -->
+                        </div>
+
+                        <div id="chat-messages-area"
+                            style="flex: 1; padding: 1rem; overflow-y: auto; background: #f9fafb; display: flex; flex-direction: column; gap: 0.5rem;">
+                            <div style="text-align: center; color: var(--text-secondary); margin-top: 2rem;">Select a
+                                user to start chatting</div>
+                        </div>
+
+                        <div id="chat-input-area"
+                            style="padding: 1rem; border-top: 1px solid var(--border-color); background: white; display: none;">
+                            <form id="chat-form" style="display: flex; gap: 0.5rem;">
+                                <input type="text" id="chat-input" class="form-input" placeholder="Type a reply..."
+                                    style="flex: 1;" required>
+                                <button type="submit" class="btn" style="width: auto;"><i
+                                        class="fa-solid fa-paper-plane"></i></button>
+                            </form>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -668,8 +721,8 @@
                 </div>
 
                 <div class="form-group" id="group-video-link" style="display:none;">
-                    <label class="form-label">YouTube Embed Code (<iframe...>)</label>
-                    <textarea id="prod-video-link" class="form-input" placeholder='Paste the full IFrame code here'
+                    <label class="form-label">YouTube Video Link</label>
+                    <textarea id="prod-video-link" class="form-input" placeholder='Paste full YouTube Video Link here'
                         rows="3"></textarea>
                 </div>
 
@@ -1228,6 +1281,175 @@
 
         // Initialize toggle
         toggleLinkInputs();
+
+        // --- Chat System ---
+        let selectedChatUserId = null;
+        let messagesRef = null; // to unsubscribe
+
+        // Load users who have initiated chats
+        // Since we don't have a direct list of "users with chats", we iterate the 'chats' node
+        function loadChatUsers() {
+            const chatsRef = ref(db, 'chats');
+            onValue(chatsRef, (snapshot) => {
+                const data = snapshot.val();
+                const listContainer = document.getElementById('chat-user-list');
+                listContainer.innerHTML = '';
+
+                if (data) {
+                    Object.keys(data).forEach(userId => {
+                        // Get user details (email/name) from our users cache or fetch fresh
+                        // For simplicity, we assume 'users' node has this data already loaded by loadUsers()
+                        // but let's just do a quick look up in the existing UI table data or fetch
+                        // Actually, better to fetch one-off or rely on cache.
+
+                        let userDisplay = "User: " + userId.substring(0, 6);
+
+                        // Try to find email from the 'users' table cache if we had it, 
+                        // but we don't have a global users object exposed easily. 
+                        // Let's just fetch it lightly or use a placeholder.
+
+                        const userItem = document.createElement('div');
+                        userItem.style.padding = '1rem';
+                        userItem.style.borderBottom = '1px solid #eee';
+                        userItem.style.cursor = 'pointer';
+                        userItem.style.transition = 'background 0.2s';
+                        userItem.className = 'chat-user-item';
+                        userItem.dataset.uid = userId;
+
+                        // Fetch user info for better display
+                        get(ref(db, 'users/' + userId)).then(snap => {
+                            if (snap.exists()) {
+                                const u = snap.val();
+                                userDisplay = u.email || u.phone || "User: " + userId.substring(0, 6);
+                            }
+                            userItem.innerHTML = `
+                                <div style="font-weight:500;">${userDisplay}</div>
+                                <div style="font-size:0.75rem; color:#6b7280;">ID: ${userId.substring(0, 8)}...</div>
+                            `;
+                        });
+
+                        userItem.innerHTML = `
+                             <div style="font-weight:500;">${userDisplay}</div>
+                             <div style="font-size:0.75rem; color:#6b7280;">ID: ${userId.substring(0, 8)}...</div>
+                        `;
+
+                        userItem.onclick = () => selectChatUser(userId, userDisplay);
+                        listContainer.appendChild(userItem);
+                    });
+                } else {
+                    listContainer.innerHTML = '<div style="padding: 1rem; text-align: center; color: var(--text-secondary);">No active chats</div>';
+                }
+            });
+        }
+
+        function selectChatUser(userId, displayName) {
+            selectedChatUserId = userId;
+
+            // UI Updates
+            document.querySelectorAll('.chat-user-item').forEach(el => el.style.background = 'transparent');
+            const selectedEl = document.querySelector(`.chat-user-item[data-uid="${userId}"]`);
+            if (selectedEl) selectedEl.style.background = '#eff6ff'; // light blue
+
+            document.getElementById('chat-header').style.display = 'block';
+            document.getElementById('chat-header').textContent = "Chatting with: " + displayName;
+            document.getElementById('chat-input-area').style.display = 'block';
+
+            loadChatMessages(userId);
+        }
+
+        function loadChatMessages(userId) {
+            // Unsubscribe previous if exists
+            // (Firebase SDK handles replacing listeners on same ref usually, but good practice)
+
+            const msgsContainer = document.getElementById('chat-messages-area');
+            msgsContainer.innerHTML = '<div style="text-align:center; padding:1rem;">Loading...</div>';
+
+            const mRef = ref(db, `chats/${userId}/messages`);
+
+            onValue(mRef, (snapshot) => {
+                const data = snapshot.val();
+                msgsContainer.innerHTML = '';
+
+                if (data) {
+                    // Convert obj to array
+                    const msgs = Object.values(data).sort((a, b) => a.timestamp - b.timestamp);
+
+                    msgs.forEach(msg => {
+                        const isMe = msg.senderId === 'admin';
+                        const bubble = document.createElement('div');
+
+                        bubble.style.maxWidth = '70%';
+                        bubble.style.padding = '0.75rem 1rem';
+                        bubble.style.borderRadius = '1rem';
+                        bubble.style.marginBottom = '0.5rem';
+                        bubble.style.fontSize = '0.9rem';
+
+                        if (isMe) {
+                            bubble.style.alignSelf = 'flex-end';
+                            bubble.style.background = 'var(--primary-color)';
+                            bubble.style.color = 'white';
+                            bubble.style.borderBottomRightRadius = '0.25rem';
+                        } else {
+                            bubble.style.alignSelf = 'flex-start';
+                            bubble.style.background = 'white';
+                            bubble.style.border = '1px solid #e5e7eb';
+                            bubble.style.borderBottomLeftRadius = '0.25rem';
+                        }
+
+                        bubble.textContent = msg.text;
+                        msgsContainer.appendChild(bubble);
+                    });
+
+                    // Scroll to bottom
+                    msgsContainer.scrollTop = msgsContainer.scrollHeight;
+                } else {
+                    msgsContainer.innerHTML = '<div style="text-align:center; color:gray; padding:1rem;">No history yet.</div>';
+                }
+            });
+        }
+
+        document.getElementById('chat-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const input = document.getElementById('chat-input');
+            const text = input.value.trim();
+
+            if (!text || !selectedChatUserId) return;
+
+            try {
+                const newMessageRef = push(ref(db, `chats/${selectedChatUserId}/messages`));
+                await set(newMessageRef, {
+                    senderId: 'admin',
+                    text: text,
+                    timestamp: Date.now()
+                });
+                input.value = '';
+            } catch (e) {
+                alert("Error sending message: " + e.message);
+            }
+        });
+
+        // Add to loadData
+        const originalLoadData = loadData; // preserve ref if needed
+        // Override loadData to include chat
+        // We defined loadData function above, let's just append calls or modify it. 
+        // Since loadData is defined as a function declaration, we can't easily overwrite it cleanly without parsing order issues.
+        // Instead, we call `loadChatUsers()` inside `loadData` manually if we edit that function, 
+        // OR we just call it once here if we are lazy, but it needs specific view context? No, sidebars are static.
+        // Let's hook into the existing loadData function by re-defining it if possible, or simpler: 
+        // Just call it when Dashboard loads, but strict mode might prevent re-declaring.
+
+        // Simpler: Just run it once if admin is authorized.
+        // The handleAdminAuth calls loadData(). 
+        // We will modify loadData() in the previous block or just add a listener for view change.
+
+        // Let's trigger it on view change to 'messages'
+        navLinks.forEach(link => {
+            link.addEventListener('click', () => {
+                if (link.getAttribute('data-view') === 'messages') {
+                    loadChatUsers();
+                }
+            });
+        });
 
     </script>
 </body>
