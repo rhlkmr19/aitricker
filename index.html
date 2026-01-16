@@ -1421,9 +1421,11 @@
         });
 
         // --- CUSTOM TYPES LOGIC ---
+        // Define global variables within module scope, but ensure functions are on window
         let productTypes = {};
 
-        function loadTypes() {
+        // Explicitly attach to window
+        window.loadTypes = function () {
             const typeRef = ref(db, 'product_types');
             onValue(typeRef, (snapshot) => {
                 const data = snapshot.val();
@@ -1465,7 +1467,7 @@
                     seedDefaultTypes();
                 }
             });
-        }
+        };
 
         function seedDefaultTypes() {
             const defaults = [
@@ -1475,17 +1477,30 @@
             defaults.forEach(d => push(ref(db, 'product_types'), d));
         }
 
-        window.openTypeModal = () => {
+        window.openTypeModal = function () {
+            console.log("Opening Type Modal");
             document.getElementById('type-modal-title').textContent = "Add Sub-Type";
             document.getElementById('type-id').value = ''; // IMPORTANT: Clear ID
             document.getElementById('type-form').reset();
             document.getElementById('type-modal').style.display = 'flex';
         };
 
-        window.editType = (id) => {
+        window.editType = function (id) {
+            console.log("Editing Type:", id);
             const type = productTypes[id];
             if (!type) {
                 console.error("Type not found in cache", id);
+                // Fallback fetch if cache empty? 
+                get(ref(db, 'product_types/' + id)).then((snap) => {
+                    if (snap.exists()) {
+                        const fetchedType = snap.val();
+                        document.getElementById('type-modal-title').textContent = "Edit Sub-Type";
+                        document.getElementById('type-id').value = id;
+                        document.getElementById('type-name').value = fetchedType.name;
+                        document.getElementById('type-format').value = fetchedType.format;
+                        document.getElementById('type-modal').style.display = 'flex';
+                    }
+                });
                 return;
             }
             document.getElementById('type-modal-title').textContent = "Edit Sub-Type";
