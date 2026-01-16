@@ -556,21 +556,48 @@
             <div id="view-categories" class="view-section">
                 <div class="page-header">
                     <div class="page-title">Categories</div>
-                    <button class="btn btn-sm" onclick="openCategoryModal()">+ Add Category</button>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn btn-sm" onclick="openCategoryModal()">+ Add Category</button>
+                        <button class="btn btn-sm btn-secondary" onclick="openTypeModal()">+ Add Sub-Type</button>
+                    </div>
                 </div>
-                <div class="content-card">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Description</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="categories-table">
-                            <!-- JS -->
-                        </tbody>
-                    </table>
+
+                <!-- Layout: 2 Columns (Categories | Sub-Types) -->
+                <div style="display:flex; gap: 20px; flex-wrap: wrap;">
+
+                    <!-- Categories Column -->
+                    <div class="content-card" style="flex: 1; min-width: 300px;">
+                        <h3 style="padding:1rem; border-bottom:1px solid #e5e7eb; font-size:1.1rem;">Categories</h3>
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="categories-table">
+                                <!-- JS -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Sub-Types Column -->
+                    <div class="content-card" style="flex: 1; min-width: 300px;">
+                        <h3 style="padding:1rem; border-bottom:1px solid #e5e7eb; font-size:1.1rem;">Product Types
+                            (Sub-Categories)</h3>
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Format</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="types-table">
+                                <!-- JS -->
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
@@ -971,7 +998,8 @@
         function loadData() {
             loadCategories();
             loadProducts();
-            loadUsers(); // This tracks users node from DB
+            loadUsers();
+            loadTypes(); // <--- NEW loading of types
         }
 
         // --- Categories ---
@@ -1098,8 +1126,19 @@
 
         // --- Products ---
         window.toggleLinkInputs = () => {
-            const type = document.getElementById('prod-type').value;
-            if (type === 'source_code') {
+            const typeSelect = document.getElementById('prod-type');
+            const selectedOption = typeSelect.options[typeSelect.selectedIndex];
+
+            // Handle legacy/first-load or empty
+            let format = 'source_code';
+            if (selectedOption && selectedOption.dataset.format) {
+                format = selectedOption.dataset.format;
+            } else if (typeSelect.value === 'video_course') {
+                // Fallback for legacy hardcoded values if any remain
+                format = 'video_course';
+            }
+
+            if (format === 'source_code') {
                 document.getElementById('group-drive-link').style.display = 'block';
                 document.getElementById('group-video-link').style.display = 'none';
                 document.getElementById('prod-drive-link').required = true;
@@ -1262,7 +1301,23 @@
             document.getElementById('prod-id').value = id;
             document.getElementById('prod-title').value = prod.title;
             document.getElementById('prod-category').value = prod.category;
-            document.getElementById('prod-type').value = prod.type;
+
+            // Set Dynamic Type
+            // If product has customTypeId, use it. Else try to map legacy type
+            if (prod.customTypeId) {
+                document.getElementById('prod-type').value = prod.customTypeId;
+            } else {
+                // Legacy Fallback: Try to find a type with matching format
+                // This is imperfect but best effort
+                const typeSelect = document.getElementById('prod-type');
+                for (let i = 0; i < typeSelect.options.length; i++) {
+                    const opt = typeSelect.options[i];
+                    if (opt.dataset.format === prod.type) {
+                        typeSelect.selectedIndex = i;
+                        break;
+                    }
+                }
+            }
 
             toggleLinkInputs(); // update visibility
 
@@ -1364,6 +1419,84 @@
                     .catch((error) => alert('Error: ' + error.message));
             }
         });
+
+        // --- CUSTOM TYPES LOGIC ---
+        let productTypes = {};
+
+        function loadTypes() {
+            const typeRef = ref(db, 'product_types');
+            onValue(typeRef, (snapshot) => {
+                const data = snapshot.val();
+                productTypes = data || {};
+
+                const tableBody = document.getElementById('types-table');
+                const prodTypeSelect = document.getElementById('prod-type');
+
+                if (tableBody) tableBody.innerHTML = '';
+                if (prodTypeSelect) prodTypeSelect.innerHTML = '<option value="">Select Type</option>';
+
+                if (data) {
+                    Object.keys(data).forEach(key => {
+                        const type = data[key];
+                        // Table
+                        if (tableBody) {
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                 <td>${type.name}</td>
+                                 <td>${type.format === 'source_code' ? 'App/File' : 'Video'}</td>
+                                 <td>
+                                     <button class="action-btn btn-delete" onclick="deleteType('${key}')"><i class="fa-solid fa-trash"></i></button>
+                                 </td>
+                             `;
+                            tableBody.appendChild(row);
+                        }
+
+                        // Dropdown
+                        if (prodTypeSelect) {
+                            const opt = document.createElement('option');
+                            opt.value = key; // Value is the Type ID
+                            opt.textContent = type.name;
+                            opt.dataset.format = type.format;
+                            prodTypeSelect.appendChild(opt);
+                        }
+                    });
+                } else {
+                    seedDefaultTypes();
+                }
+            });
+        }
+
+        function seedDefaultTypes() {
+            const defaults = [
+                { name: "App Source Code", format: "source_code" },
+                { name: "Video Course", format: "video_course" }
+            ];
+            defaults.forEach(d => push(ref(db, 'product_types'), d));
+        }
+
+        window.openTypeModal = () => {
+            document.getElementById('type-modal').style.display = 'flex';
+            document.getElementById('type-form').reset();
+        };
+
+        const typeForm = document.getElementById('type-form');
+        if (typeForm) {
+            typeForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const name = document.getElementById('type-name').value;
+                const format = document.getElementById('type-format').value;
+
+                push(ref(db, 'product_types'), { name, format })
+                    .then(() => closeModal('type-modal'))
+                    .catch(err => alert(err.message));
+            });
+        }
+
+        window.deleteType = (id) => {
+            if (confirm("Delete this type? Products using it might break.")) {
+                remove(ref(db, 'product_types/' + id));
+            }
+        };
 
         // --- Users ---
         // Constraint: We can't list Auth users from client.
