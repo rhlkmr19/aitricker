@@ -832,6 +832,33 @@
         </div>
     </div>
 
+    <!-- Type Modal -->
+    <div id="type-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="type-modal-title">Add Sub-Type</h3>
+                <button class="close-btn" onclick="closeModal('type-modal')">&times;</button>
+            </div>
+            <form id="type-form">
+                <input type="hidden" id="type-id">
+                <div class="form-group">
+                    <label class="form-label">Type Name</label>
+                    <input type="text" id="type-name" class="form-input" placeholder="e.g. Android App, Unity Game"
+                        required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Format (System Behavior)</label>
+                    <select id="type-format" class="form-input" required>
+                        <option value="source_code">App / File (Drive Link)</option>
+                        <option value="video_course">Video (YouTube)</option>
+                    </select>
+                    <small style="color:gray;">Determines if this type behaves like an App or a Course in the
+                        App.</small>
+                </div>
+                <button type="submit" class="btn">Save Type</button>
+            </form>
+        </div>
+    </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
