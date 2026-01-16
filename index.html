@@ -1310,6 +1310,7 @@
         });
 
         window.openProductModal = () => {
+            console.log("Opening Add Product Modal");
             document.getElementById('product-modal-title').textContent = "Add Product";
             document.getElementById('product-form').reset();
             document.getElementById('prod-id').value = '';
@@ -1319,8 +1320,12 @@
         };
 
         window.editProduct = (id) => {
+            console.log("Editing Product ID:", id);
             const prod = productsCache[id];
-            if (!prod) return;
+            if (!prod) {
+                console.error("Product not found in cache:", id);
+                return;
+            }
 
             document.getElementById('product-modal-title').textContent = "Edit Product";
             document.getElementById('prod-id').value = id;
@@ -1367,8 +1372,11 @@
         };
 
         window.deleteProduct = (id) => {
+            console.log("Deleting Product ID:", id);
             if (confirm("Are you sure you want to delete this product?")) {
-                remove(ref(db, 'products/' + id));
+                remove(ref(db, 'products/' + id))
+                    .then(() => console.log("Product deleted"))
+                    .catch(e => console.error(e));
             }
         };
 
