@@ -794,9 +794,7 @@
                 </div>
 
                 <div class="form-group" id="group-video-link" style="display:none;">
-                    <label class="form-label">YouTube Video Link</label>
-                    <textarea id="prod-video-link" class="form-input" placeholder='Paste full YouTube Video Link here'
-                        rows="3"></textarea>
+                    rows="3"></textarea>
                 </div>
 
                 <div class="toggle-group">
@@ -1408,14 +1406,24 @@
             } else {
                 let rawInput = document.getElementById('prod-video-link').value.trim();
                 let videoId = "";
+                let urlToParse = rawInput;
+
+                // Handle Iframe Embed Code
+                if (rawInput.startsWith('<iframe') || rawInput.includes('<iframe')) {
+                    // Extract src="..."
+                    const srcMatch = rawInput.match(/src="([^"]+)"/);
+                    if (srcMatch && srcMatch[1]) {
+                        urlToParse = srcMatch[1];
+                    }
+                }
 
                 // Helper to extract ID
-                if (rawInput.includes("youtube.com/watch?v=")) {
-                    videoId = rawInput.split("v=")[1].split("&")[0];
-                } else if (rawInput.includes("youtu.be/")) {
-                    videoId = rawInput.split("youtu.be/")[1].split("?")[0];
-                } else if (rawInput.includes("embed/")) {
-                    videoId = rawInput.split("embed/")[1].split('"')[0].split("'")[0].split("?")[0];
+                if (urlToParse.includes("youtube.com/watch?v=")) {
+                    videoId = urlToParse.split("v=")[1].split("&")[0];
+                } else if (urlToParse.includes("youtu.be/")) {
+                    videoId = urlToParse.split("youtu.be/")[1].split("?")[0];
+                } else if (urlToParse.includes("embed/")) {
+                    videoId = urlToParse.split("embed/")[1].split('"')[0].split("'")[0].split("?")[0];
                 }
 
                 if (!videoId || videoId.length < 5) {
