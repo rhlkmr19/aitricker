@@ -1445,7 +1445,8 @@
                                  <td>${type.name}</td>
                                  <td>${type.format === 'source_code' ? 'App/File' : 'Video'}</td>
                                  <td>
-                                     <button class="action-btn btn-delete" onclick="deleteType('${key}')"><i class="fa-solid fa-trash"></i></button>
+                                     <button class="action-btn btn-edit" onclick="window.editType('${key}')"><i class="fa-solid fa-pen"></i></button>
+                                     <button class="action-btn btn-delete" onclick="window.deleteType('${key}')"><i class="fa-solid fa-trash"></i></button>
                                  </td>
                              `;
                             tableBody.appendChild(row);
@@ -1475,8 +1476,23 @@
         }
 
         window.openTypeModal = () => {
-            document.getElementById('type-modal').style.display = 'flex';
+            document.getElementById('type-modal-title').textContent = "Add Sub-Type";
+            document.getElementById('type-id').value = ''; // IMPORTANT: Clear ID
             document.getElementById('type-form').reset();
+            document.getElementById('type-modal').style.display = 'flex';
+        };
+
+        window.editType = (id) => {
+            const type = productTypes[id];
+            if (!type) {
+                console.error("Type not found in cache", id);
+                return;
+            }
+            document.getElementById('type-modal-title').textContent = "Edit Sub-Type";
+            document.getElementById('type-id').value = id;
+            document.getElementById('type-name').value = type.name;
+            document.getElementById('type-format').value = type.format;
+            document.getElementById('type-modal').style.display = 'flex';
         };
 
         const typeForm = document.getElementById('type-form');
