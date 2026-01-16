@@ -1380,7 +1380,20 @@
             const id = document.getElementById('prod-id').value;
             const title = document.getElementById('prod-title').value;
             const category = document.getElementById('prod-category').value;
-            const type = document.getElementById('prod-type').value;
+
+            // Get Type Info Correctly
+            const typeSelect = document.getElementById('prod-type');
+            const selectedOption = typeSelect.options[typeSelect.selectedIndex];
+            const customTypeId = typeSelect.value;
+            const typeName = selectedOption.text;
+
+            let format = 'source_code'; // Default
+            if (selectedOption && selectedOption.dataset.format) {
+                format = selectedOption.dataset.format;
+            } else if (customTypeId === 'video_course') {
+                format = 'video_course';
+            }
+
             const priceType = document.getElementById('prod-price-type').value;
             const price = priceType === 'paid' ? document.getElementById('prod-price-amount').value : "0";
             const shortDesc = document.getElementById('prod-short-desc').value;
@@ -1390,7 +1403,7 @@
             const featured = document.getElementById('prod-featured').checked;
 
             let contentUrl = "";
-            if (type === 'source_code') {
+            if (format === 'source_code') {
                 contentUrl = document.getElementById('prod-drive-link').value;
             } else {
                 let rawInput = document.getElementById('prod-video-link').value.trim();
@@ -1415,7 +1428,11 @@
             }
 
             const data = {
-                title, category, type, priceType, price,
+                title, category,
+                type: format, // System format (source_code / video_course) for App
+                customTypeId: customTypeId, // The actual dynamic type ID
+                subType: typeName, // For display
+                priceType, price,
                 shortDescription: shortDesc,
                 fullDescription: fullDesc,
                 thumbnail, contentUrl,
@@ -1441,7 +1458,7 @@
                         document.getElementById('product-form').reset();
 
                         // AUTO SEND NOTIFICATION
-                        sendSystemNotification("New Release!", `New ${type === 'source_code' ? 'App' : 'Course'}: ${title} is now available!`);
+                        sendSystemNotification("New Release!", `New ${format === 'source_code' ? 'App' : 'Course'}: ${title} is now available!`);
                     })
                     .catch((error) => alert('Error: ' + error.message));
             }
